@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu AR</title>
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; background: #1c1410; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
+  .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
+            padding: 24px; text-align: center; background: #1c1410; z-index: 20; }
+  .screen.on { display: flex; }
+  h1 { font-size: 1.6rem; margin: 0 0 8px; }
+  p { max-width: 30ch; line-height: 1.5; color: #e8d9cc; margin: 0 0 20px; }
+  button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 14px 28px; margin: 6px;
+           background: #e8452c; color: #fff; }
+  button.plain { background: transparent; border: 1px solid #8a7466; color: #e8d9cc; }
+  button:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
+  #hint { position: fixed; left: 0; right: 0; bottom: 24px; text-align: center; z-index: 10; pointer-events: none;
+          text-shadow: 0 1px 4px #000; transition: opacity .3s; }
+  #hud { position: fixed; top: 12px; right: 12px; z-index: 15; display: none; }
+  #hud button { padding: 8px 16px; background: rgba(0,0,0,.55); font-size: .9rem; }
+  model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
+  #viewer { padding: 0; }
+  #viewer .bar { position: absolute; top: 12px; left: 12px; z-index: 2; }
+</style>
+</head>
+<body>
+
+<!-- 1. Start screen -->
+<div class="screen on" id="start">
+  <h1>See your dish in 3D</h1>
+  <p>Point your camera at a dish photo on the menu.</p>
+  <button id="go">Open camera</button>
+  <button class="plain" id="skip">View 3D without camera</button>
+</div>
+
+<!-- 2. Fallback: plain 3D viewer (works without camera; adds "View in your space" on capable phones) -->
+<div class="screen" id="viewer">
+  <div class="bar"><button class="plain" id="back">Back</button></div>
+  <model-viewer id="mv" src="./pizza.glb" alt="Pizza" camera-controls auto-rotate
+                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" touch-action="pan-y">
+  </model-viewer>
+</div>
+
+<!-- 3. Error message -->
+<div class="screen" id="error">
+  <h1>Camera not available</h1>
+  <p id="errmsg">Allow camera access in your browser, or view the dish in 3D instead.</p>
+  <button id="err3d">View 3D</button>
+</div>
+
+<div id="hud"><button id="hud3d">3D view</button></div>
+<div id="hint"></div>
+
+<!-- AR scene: autoStart is off so we start it after the customer taps the button -->
+<a-scene id="scene"
+         mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+         color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
+         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+
+  <a-assets>
+    <a-asset-item id="pizza" src="./pizza.glb"></a-asset-item>
+  </a-assets>
+
+  <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
+  <a-light type="ambient" intensity="1.2"></a-light>
+  <a-light type="directional" intensity="1" position="0.5 1 1"></a-light>
+
+  <!-- Target 0 = the first image you compiled (the pizza photo) -->
+  <a-entity id="t0" mindar-image-target="targetIndex: 0">
+    <!-- TUNE THESE: rotation lays the model flat, scale sets size (1 = width of the menu photo), position lifts it -->
+    <a-gltf-model src="#pizza" rotation="90 0 0" position="0 0 0.02" scale="0.5 0.5 0.5"></a-gltf-model>
+  </a-entity>
+</a-scene>
+
+<script>
+  const $ = id => document.getElementById(id);
+  const show = id => { ['start','viewer','error'].forEach(s => $(s).classList.toggle('on', s === id)); };
+  const scene = $('scene');
+  let started = false;
+
+  function hint(t) { $('hint').textContent = t; }
+
+  function open3D() {
+    stopAR();
+    show('viewer');
+  }
+
+  function stopAR() {
+    try { if (started) scene.systems['mindar-image-system'].stop(); } catch (e) {}
+    started = false;
+    $('hud').style.display = 'none';
+    hint('');
+  }
+
+  async function startAR() {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      $('errmsg').textContent = 'This browser cannot open the camera. Open the link in Chrome or Safari, or view 3D instead.';
+      show('error'); return;
+    }
+    hint('Starting camera…');
+    $('start').classList.remove('on');
+    try {
+      const sys = scene.systems['mindar-image-system'];
+      await sys.start();
+      started = true;
+      $('hud').style.display = 'block';
+      hint('Point at the dish photo on the menu');
+    } catch (e) {
+      console.error(e);
+      hint('');
+      show('error');
+    }
+  }
+
+  // Wait for the scene to be ready, then wire up buttons
+  function ready() {
+    $('go').onclick = startAR;
+    $('skip').onclick = open3D;
+    $('err3d').onclick = open3D;
+    $('hud3d').onclick = open3D;
+    $('back').onclick = () => { show('start'); };
+    const t0 = $('t0');
+    t0.addEventListener('targetFound', () => hint(''));
+    t0.addEventListener('targetLost', () => hint('Point at the dish photo on the menu'));
+  }
+  ready();
+</script>
+</body>
+</html>
