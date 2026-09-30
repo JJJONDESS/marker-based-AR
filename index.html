@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Menu AR</title>
+<script src="dishes.js"></script>
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
@@ -44,6 +45,15 @@
   #start .back3d button { pointer-events: auto; padding: 10px 18px; }
   #start.only3d .top, #start.only3d .ui { display: none; }
   #start.only3d .back3d { display: flex; }
+  #start .row { display: flex; gap: 8px; width: min(100%, 320px); pointer-events: auto; }
+  #start .row button { width: auto; flex: 1; padding: 12px 8px; }
+  button.wa { background: #1fa855; }
+  #sheet { display: none; position: absolute; inset: 0; z-index: 5; background: rgba(0,0,0,.6); align-items: flex-end; }
+  #sheet.on { display: flex; }
+  #sheet .card { background: #2a1e18; width: 100%; box-sizing: border-box; text-align: left; max-height: 75%; overflow: auto;
+                 padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); border-radius: 20px 20px 0 0; }
+  #sheet h2 { margin: 0 0 12px; }
+  #sheet p { max-width: none; margin: 0 0 10px; }
 </style>
 </head>
 <body>
@@ -56,7 +66,8 @@
   </model-viewer>
 
   <div class="top">
-    <h1>See your dish in 3D</h1>
+    <h1 id="dname">See your dish in 3D</h1>
+    <p id="price" style="display:none"></p>
     <p id="sub">Loading your 3D dish…</p>
   </div>
 
@@ -64,7 +75,17 @@
     <button id="go" disabled>Loading…</button>
     <button id="ar" class="alt" style="display:none">View in your space (AR)</button>
     <button class="plain" id="skip">View 3D without camera</button>
+    <div class="row">
+      <button class="wa" id="wa">Order on WhatsApp</button>
+      <button class="plain" id="call">Call waiter</button>
+    </div>
+    <button class="plain" id="info" style="display:none">Details</button>
   </div>
+
+  <div id="sheet"><div class="card">
+    <h2 id="sname"></h2><p id="sdesc"></p><p id="sing"></p><p id="sall"></p>
+    <button class="plain" id="sclose">Close</button>
+  </div></div>
 
   <!-- shown when "View 3D without camera" is tapped -->
   <div class="back3d">
@@ -85,39 +106,46 @@
 <div id="hud"><button id="detach">Detach</button><button id="mode" style="display:none">Drag: Rotate</button><button id="hud3d">3D view</button></div>
 <div id="hint"></div>
 
-<!-- AR scene: autoStart is off so we start it after the customer taps the button -->
+<script>
+  // Reads ?item=... from the link and builds the AR scene for that dish
+  (function () {
+    const key = new URLSearchParams(location.search).get('item');
+    const d = DISHES[key];
+    window.DISH = d;
+    if (!d) {
+      window.NOITEM = true;
+      const b = document.body;
+      b.style.overflow = 'auto'; b.style.touchAction = 'auto'; b.style.height = 'auto'; b.style.background = '#1c1410';
+      b.innerHTML = '<div style="padding:32px 24px;max-width:420px;margin:0 auto"><h1>Menu</h1><p>Choose a dish:</p>' +
+        Object.keys(DISHES).map(k => '<p><a style="color:#ffd27a;font-size:1.2rem" href="?item=' + k + '">' + DISHES[k].name + '</a></p>').join('') + '</div>';
+      return;
+    }
+    const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '0.5 0.5 0.5';
+    document.body.insertAdjacentHTML('beforeend', `
 <a-scene id="scene"
-         mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
          vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
-
-  <a-assets>
-    <a-asset-item id="pizza" src="./pizza.glb"></a-asset-item>
-  </a-assets>
-
+  <a-assets><a-asset-item id="dish" src="${d.glb}"></a-asset-item></a-assets>
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   <a-light type="ambient" intensity="1.2"></a-light>
   <a-light type="directional" intensity="1" position="0.5 1 1"></a-light>
-
-  <!-- Target 0 = the first image you compiled (the pizza photo) -->
   <a-entity id="t0" mindar-image-target="targetIndex: 0">
-    <!-- pop = 1.5s pop-up + 360 spin | zoom = pinch | tilt/spin = finger drag -->
     <a-entity id="pop" scale="0.001 0.001 0.001"
               animation__pop="property: scale; from: 0.001 0.001 0.001; to: 1 1 1; dur: 1500; easing: easeOutBack; startEvents: popstart"
               animation__spin="property: rotation; from: 0 0 0; to: 0 0 360; dur: 1500; easing: easeOutCubic; startEvents: popstart">
-      <a-entity id="zoom">
-        <a-entity id="tilt">
-          <a-entity id="spin">
-            <!-- TUNE THESE: rotation lays the model flat, scale sets size (1 = width of the menu photo), position lifts it -->
-            <a-gltf-model src="#pizza" rotation="90 0 0" position="0 0 0.02" scale="0.5 0.5 0.5"></a-gltf-model>
-          </a-entity>
-        </a-entity>
-      </a-entity>
+      <a-entity id="zoom"><a-entity id="tilt"><a-entity id="spin">
+        <a-gltf-model src="#dish" rotation="${rot}" position="${pos}" scale="${sc}"></a-gltf-model>
+      </a-entity></a-entity></a-entity>
     </a-entity>
   </a-entity>
-</a-scene>
+</a-scene>`);
+  })();
+</script>
 
 <script>
+  if (!window.NOITEM) {
+
   const $ = id => document.getElementById(id);
   const show = id => { ['start','error'].forEach(s => $(s).classList.toggle('on', s === id)); $('start').classList.remove('only3d'); };
   const scene = $('scene');
@@ -220,7 +248,7 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const SHOW_AR_ON_ANDROID = false;   // set to true to also show "View in your space" on Android phones
   let heroSet = false;
-  const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = './pizza.glb'; } };
+  const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
   const checkAR = () => {
     const ok = mv.canActivateAR && (isIOS || SHOW_AR_ON_ANDROID);
     $('ar').style.display = ok ? '' : 'none';
@@ -232,6 +260,26 @@
   });
   mv.addEventListener('error', () => { $('sub').textContent = 'Point your camera at a dish photo on the menu.'; });
   $('ar').onclick = $('ar2').onclick = () => mv.activateAR();
+
+  // Dish info + order buttons
+  document.title = DISH.name + ' · ' + RESTAURANT.name;
+  $('dname').textContent = DISH.name;
+  if (DISH.price) { $('price').textContent = DISH.price; $('price').style.display = ''; }
+  $('wa').onclick = () => window.open('https://wa.me/' + RESTAURANT.whatsapp + '?text=' + encodeURIComponent('Hi, I would like to order: ' + DISH.name), '_blank');
+  $('call').onclick = () => { location.href = 'tel:' + RESTAURANT.phone; };
+  [['sdesc', DISH.description, ''], ['sing', DISH.ingredients, 'Ingredients: '], ['sall', DISH.allergens, 'Allergens: ']].forEach(([id, v, pre]) => {
+    $(id).textContent = v ? pre + v : ''; $(id).style.display = v ? '' : 'none';
+  });
+  $('sname').textContent = DISH.name + (DISH.price ? ' · ' + DISH.price : '');
+  if (DISH.description || DISH.ingredients || DISH.allergens) $('info').style.display = '';
+  $('info').onclick = () => $('sheet').classList.add('on');
+  $('sclose').onclick = () => $('sheet').classList.remove('on');
+
+  // Android: open the camera automatically once everything has loaded (iPhone keeps its buttons)
+  const AUTO_CAMERA_ON_ANDROID = true;
+  whenReady().then(() => {
+    if (AUTO_CAMERA_ON_ANDROID && !isIOS && !$('start').classList.contains('only3d')) startAR();
+  });
   Promise.race([whenReady(), new Promise(r => setTimeout(r, 6000))]).then(loadHero);
 
   const pop = $('pop'), tilt = $('tilt'), spin = $('spin'), zoom = $('zoom'), t0 = $('t0'), dbtn = $('detach');
@@ -312,6 +360,8 @@
     }
   });
   ['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => pts.delete(e.pointerId)));
+
+  }
 </script>
 </body>
 </html>
