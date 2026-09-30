@@ -7,6 +7,7 @@
 <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
+<script src="https://githack.com"></script>
 <style>
   /* IMPORTANT: no background on html/body, or it hides the camera feed */
   html, body { margin: 0; height: 100%; background: transparent; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
@@ -62,11 +63,30 @@
 <a-scene id="scene"
          mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
-         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
+         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
+         gesture-detector> <!-- Captures screen touch inputs -->
 
   <a-assets>
     <a-asset-item id="pizza" src="./pizza.glb"></a-asset-item>
   </a-assets>
+
+  <!-- The MindAR Target Anchor -->
+  
+    
+    <!-- The Interactive Pizza Model -->
+    <a-gltf-model id="pizza-model" 
+                  src="#pizza" 
+                  class="clickable"
+                  gesture-handler="minScale: 0.3; maxScale: 3;"
+                  position="0 -0.1 0.65" 
+                  rotation="30 0 0"
+                  scale="0 0 0" 
+                  animation__scale="property: scale; to: 1.4 1.4 1.4; dur: 1500; easing: easeOutBack; startEvents: startAR"
+                  animation__rotation="property: rotation; from: 30 0 0; to: 30 360 0; dur: 1500; easing: easeOutQuad; startEvents: startAR">
+    </a-gltf-model>
+
+  
+</a-scene>
 
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   <a-light type="ambient" intensity="1.2"></a-light>
@@ -132,5 +152,28 @@
   }
   ready();
 </script>
+  <script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const targetEntity = document.querySelector("#pizza-target");
+    const pizzaModel = document.querySelector("#pizza-model");
+    let hasTriggered = false;
+
+    // A. Trigger the intro pop-and-spin when first detected
+    targetEntity.addEventListener("targetFound", () => {
+      if (!hasTriggered) {
+        pizzaModel.setAttribute("scale", "0 0 0");
+        pizzaModel.emit("startAR");
+        hasTriggered = true; // Prevents the animation from restarting unexpectedly
+      }
+    });
+
+    // B. DETACH BEHAVIOR: Freeze the model in the center of the camera field when target is lost
+    targetEntity.addEventListener("targetLost", () => {
+      // Override MindAR's auto-hide system to lock the visibility state to true
+      targetEntity.object3D.visible = true;
+    });
+  });
+</script>
+
 </body>
 </html>
