@@ -57,6 +57,40 @@
 <div id="hud"><button id="hud3d">3D view</button></div>
 <div id="hint"></div>
 
+  <!-- 1. The MindAR Target Anchor with a custom ID for scripting -->
+
+  
+  <!-- 2. The Pizza Model with Scale and Rotation animations built-in -->
+  <!-- We start the scale at '0 0 0' so it is completely hidden until scanned -->
+  <a-gltf-model id="pizza-model" 
+                src="#pizza" 
+                position="0 -0.1 0.65" 
+                scale="0 0 0" 
+                rotation="30 0 0"
+                animation__scale="property: scale; to: 1.4 1.4 1.4; dur: 1500; easing: easeOutBack; startEvents: targetFound"
+                animation__rotation="property: rotation; from: 30 0 0; to: 30 360 0; dur: 1500; easing: easeOutQuad; startEvents: targetFound">
+  </a-gltf-model>
+
+
+
+<!-- 3. The JavaScript Event Listener to trigger the animations -->
+<script>
+  document.addEventListener("DOMContentLoaded", () => {
+    const targetEntity = document.querySelector("#pizza-target");
+    const pizzaModel = document.querySelector("#pizza-model");
+
+    // Listen for the exact moment the image target is found by the camera
+    targetEntity.addEventListener("targetFound", event => {
+      // Reset the scale back to 0 first so the popup restarts fresh if rescanned
+      pizzaModel.setAttribute("scale", "0 0 0");
+      
+      // Emit the event that fires both animations at the same time
+      pizzaModel.emit("targetFound");
+    });
+  });
+</script>
+
+
 <!-- AR scene: autoStart is off so we start it after the customer taps the button -->
 <a-scene id="scene"
          mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
