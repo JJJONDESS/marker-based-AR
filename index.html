@@ -8,7 +8,9 @@
 <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
 <style>
-  html, body { margin: 0; height: 100%; background: #1c1410; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
+  /* IMPORTANT: no background on html/body, or it hides the camera feed */
+  html, body { margin: 0; height: 100%; background: transparent; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
+  .a-enter-vr, .a-enter-ar { display: none !important; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
             padding: 24px; text-align: center; background: #1c1410; z-index: 20; }
   .screen.on { display: flex; }
