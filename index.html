@@ -59,7 +59,7 @@
 
 <!-- AR scene: autoStart is off so we start it after the customer taps the button -->
 <a-scene id="scene"
-         mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
+         mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
          vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
 
@@ -81,7 +81,7 @@
         <a-entity id="tilt">
           <a-entity id="spin">
             <!-- TUNE THESE: rotation lays the model flat, scale sets size (1 = width of the menu photo), position lifts it -->
-             <a-gltf-model src="#pizza" rotation="30 0 0" position="0 -0.1 0.65" scale="1.4 1.4 1.4"></a-gltf-model>
+            <a-gltf-model src="#pizza" rotation="90 0 0" position="0 0 0.02" scale="0.5 0.5 0.5"></a-gltf-model>
           </a-entity>
         </a-entity>
       </a-entity>
