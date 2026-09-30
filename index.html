@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Menu AR</title>
-<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-<script src="https://githack.com"></script>
+<!-- Core Stable WebAR Engines -->
+<script type="module" src="https://googleapis.com"></script>
+<script src="https://aframe.io"></script>
+<script src="https://jsdelivr.net"></script>
+
 <style>
-  /* IMPORTANT: no background on html/body, or it hides the camera feed */
   html, body { margin: 0; height: 100%; background: transparent; color: #fff; font-family: system-ui, sans-serif; overflow: hidden; }
   .a-enter-vr, .a-enter-ar { display: none !important; }
   .screen { position: fixed; inset: 0; display: none; flex-direction: column; align-items: center; justify-content: center;
@@ -18,7 +18,7 @@
   h1 { font-size: 1.6rem; margin: 0 0 8px; }
   p { max-width: 30ch; line-height: 1.5; color: #e8d9cc; margin: 0 0 20px; }
   button { font: inherit; font-weight: 600; border: 0; border-radius: 999px; padding: 14px 28px; margin: 6px;
-           background: #e8452c; color: #fff; }
+           background: #e8452c; color: #fff; cursor: pointer; }
   button.plain { background: transparent; border: 1px solid #8a7466; color: #e8d9cc; }
   button:focus-visible { outline: 3px solid #ffd27a; outline-offset: 2px; }
   #hint { position: fixed; left: 0; right: 0; bottom: 24px; text-align: center; z-index: 10; pointer-events: none;
@@ -29,10 +29,56 @@
   #viewer { padding: 0; }
   #viewer .bar { position: absolute; top: 12px; left: 12px; z-index: 2; }
 </style>
+
+<script>
+  // Native Touch Gestures Component (Eliminates the external library crash)
+  AFRAME.registerComponent('pizza-gestures', {
+    init: function () {
+      this.pizza = this.el;
+      this.isScanning = true;
+      this.touchStartDist = 0;
+      this.initialScale = { x: 1.4, y: 1.4, z: 1.4 };
+
+      // Bind touch events to screen controls
+      window.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+          this.startX = e.touches[0].clientX;
+        } else if (e.touches.length === 2) {
+          this.touchStartDist = this.getDistance(e.touches);
+          const currentScale = this.pizza.getAttribute('scale');
+          this.initialScale = { x: currentScale.x, y: currentScale.y, z: currentScale.z };
+        }
+      });
+
+      window.addEventListener('touchmove', (e) => {
+        if (e.touches.length === 1 && this.startX) {
+          // One finger drag = Y-axis spinning
+          let deltaX = e.touches[0].clientX - this.startX;
+          let currentRotation = this.pizza.getAttribute('rotation');
+          this.pizza.setAttribute('rotation', {
+            x: currentRotation.x,
+            y: currentRotation.y + deltaX * 0.4,
+            z: currentRotation.z
+          });
+          this.startX = e.touches[0].clientX;
+        } else if (e.touches.length === 2 && this.touchStartDist) {
+          // Two finger pinch = Dynamic scale multiplier scaling
+          let dist = this.getDistance(e.touches);
+          let factor = dist / this.touchStartDist;
+          let newScale = Math.min(Math.max(this.initialScale.x * factor, 0.4), 3.5);
+          this.pizza.setAttribute('scale', { x: newScale, y: newScale, z: newScale });
+        }
+      });
+    },
+    getDistance: function (touches) {
+      return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY);
+    }
+  });
+</script>
 </head>
 <body>
 
-<!-- 1. Start screen -->
+<!-- Start UI screen -->
 <div class="screen on" id="start">
   <h1>See your dish in 3D</h1>
   <p>Point your camera at a dish photo on the menu.</p>
@@ -40,7 +86,7 @@
   <button class="plain" id="skip">View 3D without camera</button>
 </div>
 
-<!-- 2. Fallback: plain 3D viewer (works without camera; adds "View in your space" on capable phones) -->
+<!-- Fallback vanilla 3D viewer -->
 <div class="screen" id="viewer">
   <div class="bar"><button class="plain" id="back">Back</button></div>
   <model-viewer id="mv" src="./pizza.glb" alt="Pizza" camera-controls auto-rotate
@@ -48,7 +94,7 @@
   </model-viewer>
 </div>
 
-<!-- 3. Error message -->
+<!-- Error screen state -->
 <div class="screen" id="error">
   <h1>Camera not available</h1>
   <p id="errmsg">Allow camera access in your browser, or view the dish in 3D instead.</p>
@@ -58,53 +104,45 @@
 <div id="hud"><button id="hud3d">3D view</button></div>
 <div id="hint"></div>
 
-
-<!-- AR scene: autoStart is off so we start it after the customer taps the button -->
+<!-- A-Frame Space Studio Environment Matrix -->
 <a-scene id="scene"
          mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
-         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"
-         gesture-detector> <!-- Captures screen touch inputs -->
+         vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false"> 
 
   <a-assets>
     <a-asset-item id="pizza" src="./pizza.glb"></a-asset-item>
   </a-assets>
 
-  <!-- The MindAR Target Anchor -->
-  
-    
-    <!-- The Interactive Pizza Model -->
-    <a-gltf-model id="pizza-model" 
-                  src="#pizza" 
-                  class="clickable"
-                  gesture-handler="minScale: 0.3; maxScale: 3;"
-                  position="0 -0.1 0.65" 
-                  rotation="30 0 0"
-                  scale="0 0 0" 
-                  animation__scale="property: scale; to: 1.4 1.4 1.4; dur: 1500; easing: easeOutBack; startEvents: startAR"
-                  animation__rotation="property: rotation; from: 30 0 0; to: 30 360 0; dur: 1500; easing: easeOutQuad; startEvents: startAR">
-    </a-gltf-model>
-
-  
-</a-scene>
-
-
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   <a-light type="ambient" intensity="1.2"></a-light>
   <a-light type="directional" intensity="1" position="0.5 1 1"></a-light>
 
-  <!-- Target 0 = the first image you compiled (the pizza photo) -->
-  <a-entity id="t0" mindar-image-target="targetIndex: 0">
-    <!-- TUNE THESE: rotation lays the model flat, scale sets size (1 = width of the menu photo), position lifts it -->
-    <a-gltf-model src="#pizza" rotation="30 0 0" position="0 -0.1 0.65" scale="1.4 1.4 1.4">
-  </a-entity>
+  <!-- MindAR Target Engine Component -->
+  
+    
+    <!-- Stabilized Model Container with embedded native gesture handlers -->
+    <a-gltf-model id="pizza-model" 
+                  src="#pizza" 
+                  pizza-gestures
+                  position="0 -0.1 0.65" 
+                  rotation="30 0 0"
+                  scale="0.001 0.001 0.001" 
+                  animation__scale="property: scale; to: 1.4 1.4 1.4; dur: 1500; easing: easeOutBack; startEvents: startARAnimation"
+                  animation__rotation="property: rotation; from: 30 0 0; to: 30 360 0; dur: 1500; easing: easeOutQuad; startEvents: startARAnimation">
+    </a-gltf-model>
+
+  
 </a-scene>
 
 <script>
   const $ = id => document.getElementById(id);
   const show = id => { ['start','viewer','error'].forEach(s => $(s).classList.toggle('on', s === id)); };
   const scene = $('scene');
+  const targetEntity = $("pizza-target");
+  const pizzaModel = $("pizza-model");
   let started = false;
+  let hasTriggered = false;
 
   function hint(t) { $('hint').textContent = t; }
 
@@ -140,41 +178,32 @@
     }
   }
 
-  // Wait for the scene to be ready, then wire up buttons
   function ready() {
     $('go').onclick = startAR;
     $('skip').onclick = open3D;
     $('err3d').onclick = open3D;
     $('hud3d').onclick = open3D;
     $('back').onclick = () => { show('start'); };
-    const t0 = $('t0');
-    t0.addEventListener('targetFound', () => hint(''));
-    t0.addEventListener('targetLost', () => hint('Point at the dish photo on the menu'));
-  }
-  ready();
-</script>
-  <script>
-  document.addEventListener("DOMContentLoaded", () => {
-    const targetEntity = document.querySelector("#pizza-target");
-    const pizzaModel = document.querySelector("#pizza-model");
-    let hasTriggered = false;
 
-    // A. Trigger the intro pop-and-spin when first detected
-    targetEntity.addEventListener("targetFound", () => {
+    // Fire entrance pop animation the moment the printed target is localized
+    targetEntity.addEventListener('targetFound', () => {
       if (!hasTriggered) {
-        pizzaModel.setAttribute("scale", "0 0 0");
-        pizzaModel.emit("startAR");
-        hasTriggered = true; // Prevents the animation from restarting unexpectedly
+        hint('');
+        pizzaModel.emit("startARAnimation");
+        hasTriggered = true; 
+      } else {
+        hint('Model detached! Use fingers to zoom or rotate.');
       }
     });
 
-    // B. DETACH BEHAVIOR: Freeze the model in the center of the camera field when target is lost
-    targetEntity.addEventListener("targetLost", () => {
-      // Override MindAR's auto-hide system to lock the visibility state to true
-      targetEntity.object3D.visible = true;
+    // OVERRIDE: Keep the 3D entity alive and pinned in space if camera leaves target
+    targetEntity.addEventListener('targetLost', () => {
+      hint('Model detached! Use fingers to zoom or rotate.');
+      targetEntity.object3D.visible = true; 
     });
-  });
+  }
+  
+  ready();
 </script>
-
 </body>
 </html>
