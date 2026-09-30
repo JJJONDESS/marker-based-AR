@@ -4,11 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Menu AR</title>
-<!-- 3D Core Viewers and Tracking Engine Libraries -->
-<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
-<script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/mind-ar@1.2.5/dist/mindar-image-aframe.prod.js"></script>
-<!-- Fixed Gesture Handler Script mapping from RawGit CDN -->
+<!-- Core WebAR & A-Frame Frameworks -->
+<script type="module" src="https://googleapis.com"></script>
+<script src="https://aframe.io"></script>
+<script src="https://jsdelivr.net"></script>
+<!-- External Gestures Component Mapping -->
 <script src="https://githack.com"></script>
 
 <style>
@@ -31,10 +31,26 @@
   #viewer { padding: 0; }
   #viewer .bar { position: absolute; top: 12px; left: 12px; z-index: 2; }
 </style>
+
+<script>
+  // CUSTOM BRIDGE COMPONENT: Prevents arjs-gestures from breaking the scale animation
+  AFRAME.registerComponent('gesture-control-bridge', {
+    init: function () {
+      const el = this.el;
+      // Start out tiny so we can scale up natively
+      el.setAttribute('scale', '0.001 0.001 0.001');
+      
+      el.addEventListener('animationcomplete__scale', () => {
+        // Once the intro animation finishes scaling up, make it clickable for fingers!
+        el.classList.add('clickable');
+      });
+    }
+  });
+</script>
 </head>
 <body>
 
-<!-- 1. Start screen -->
+<!-- 1. Start UI panel overlay -->
 <div class="screen on" id="start">
   <h1>See your dish in 3D</h1>
   <p>Point your camera at a dish photo on the menu.</p>
@@ -42,7 +58,7 @@
   <button class="plain" id="skip">View 3D without camera</button>
 </div>
 
-<!-- 2. Fallback plain 3D viewer -->
+<!-- 2. Fallback vanilla 3D viewer -->
 <div class="screen" id="viewer">
   <div class="bar"><button class="plain" id="back">Back</button></div>
   <model-viewer id="mv" src="./pizza.glb" alt="Pizza" camera-controls auto-rotate
@@ -50,7 +66,7 @@
   </model-viewer>
 </div>
 
-<!-- 3. Error message -->
+<!-- 3. Error layout screen state -->
 <div class="screen" id="error">
   <h1>Camera not available</h1>
   <p id="errmsg">Allow camera access in your browser, or view the dish in 3D instead.</p>
@@ -60,7 +76,7 @@
 <div id="hud"><button id="hud3d">3D view</button></div>
 <div id="hint"></div>
 
-<!-- 4. Fixed A-Frame Virtual Space Scene Environment -->
+<!-- 4. Unified Tracking Stage -->
 <a-scene id="scene"
          mindar-image="imageTargetSrc: ./pizza-target.mind; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
@@ -71,22 +87,20 @@
     <a-asset-item id="pizza" src="./pizza.glb"></a-asset-item>
   </a-assets>
 
-  <!-- Environment Components Inside Scene Matrix -->
   <a-camera position="0 0 0" look-controls="enabled: false"></a-camera>
   <a-light type="ambient" intensity="1.2"></a-light>
   <a-light type="directional" intensity="1" position="0.5 1 1"></a-light>
 
-  <!-- Cleaned Up Consolidated MindAR Tracking Anchor -->
+  <!-- SINGLE TARGET TRACKING ANCHOR -->
   
     
-    <!-- The Interactive Pop and Spin Gesture Pizza Model -->
+    <!-- Cleaned up Interactive Pizza Target Model Model -->
     <a-gltf-model id="pizza-model" 
                   src="#pizza" 
-                  class="clickable"
+                  gesture-control-bridge
                   gesture-handler="minScale: 0.3; maxScale: 3;"
                   position="0 -0.1 0.65" 
                   rotation="30 0 0"
-                  scale="0 0 0" 
                   animation__scale="property: scale; to: 1.4 1.4 1.4; dur: 1500; easing: easeOutBack; startEvents: startARAnimation"
                   animation__rotation="property: rotation; from: 30 0 0; to: 30 360 0; dur: 1500; easing: easeOutQuad; startEvents: startARAnimation">
     </a-gltf-model>
@@ -137,7 +151,6 @@
     }
   }
 
-  // Combined Interaction Logic and Tracking Handlers
   function ready() {
     $('go').onclick = startAR;
     $('skip').onclick = open3D;
@@ -145,17 +158,18 @@
     $('hud3d').onclick = open3D;
     $('back').onclick = () => { show('start'); };
 
-    // A. Trigger the intro popup animation when target is scanned
+    // Trigger pop/spin entry once target comes into focus
     targetEntity.addEventListener('targetFound', () => {
-      hint('');
       if (!hasTriggered) {
-        pizzaModel.setAttribute("scale", "0 0 0");
+        hint('');
         pizzaModel.emit("startARAnimation");
         hasTriggered = true; 
+      } else {
+        hint('Model detached! Use fingers to zoom or rotate.');
       }
     });
 
-    // B. DETACH OVERRIDE: Prevent disappearing, keep model visible in space
+    // Keeping model pinned in space if camera drops target
     targetEntity.addEventListener('targetLost', () => {
       hint('Model detached! Use fingers to zoom or rotate.');
       targetEntity.object3D.visible = true; 
