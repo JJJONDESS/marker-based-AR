@@ -13,9 +13,9 @@ const DISHES = {
 
   'veg-pizza': {                              // <- this name goes in the QR link: ?item=veg-pizza
     name: 'Veg Pizza',
-    price: '',                                // e.g. 'Rs 1450'  (leave '' to hide)
-    description: '',                          // e.g. 'Fresh vegetables on a hand-stretched base'
-    ingredients: '',                          // e.g. 'Mushroom, capsicum, olives, onion, mozzarella'
+    price: '1250',                                // e.g. 'Rs 1450'  (leave '' to hide)
+    description: 'testing',                          // e.g. 'Fresh vegetables on a hand-stretched base'
+    ingredients: 'vergitables',                          // e.g. 'Mushroom, capsicum, olives, onion, mozzarella'
     allergens: '',                            // fill in only what is true!
     glb: 'dishes/VegPizza.glb',               // 3D model (file inside the "dishes" folder)
     mind: 'dishes/VegPizza-targets.mind'      // compiled marker image (file inside the "dishes" folder)
