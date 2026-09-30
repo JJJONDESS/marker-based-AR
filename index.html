@@ -59,7 +59,7 @@
   <button class="plain" id="err3d">View 3D</button>
 </div>
 
-<div id="hud"><button id="detach">Detach</button><button id="hud3d">3D view</button></div>
+<div id="hud"><button id="detach">Detach</button><button id="mode" style="display:none">Drag: Rotate</button><button id="hud3d">3D view</button></div>
 <div id="hint"></div>
 
 <!-- AR scene: autoStart is off so we start it after the customer taps the button -->
@@ -217,17 +217,34 @@
       if (!found) { hint('Point at the dish photo first'); return; }
       document.querySelector('a-camera').object3D.attach(pop.object3D);
       detached = true; dbtn.textContent = 'Attach back';
-      hint('Detached: drag to rotate · pinch to zoom');
+      $('mode').style.display = 'inline-block';
+      hint('Drag to rotate · pinch to zoom · two fingers to move');
     } else {
       t0.object3D.add(pop.object3D);
       pop.object3D.position.set(0, 0, 0); pop.object3D.quaternion.identity(); pop.object3D.scale.set(1, 1, 1);
       detached = false; dbtn.textContent = 'Detach';
+      moveMode = false; $('mode').textContent = 'Drag: Rotate'; $('mode').style.display = 'none';
       hint(found ? '' : 'Point at the dish photo on the menu');
       if (found) playPop();
     }
   };
 
   // Gestures: one finger = rotate/tilt, two fingers = pinch zoom
+  let moveMode = false;
+  $('mode').onclick = () => {
+    moveMode = !moveMode;
+    $('mode').textContent = moveMode ? 'Drag: Move' : 'Drag: Rotate';
+  };
+
+  // Slide the detached model across the screen (pixels -> camera-space units at the model's depth)
+  function pan(dx, dy) {
+    const o = pop.object3D.position;
+    const f = scene.camera && scene.camera.projectionMatrix.elements[5];
+    const h = (scene.canvas && scene.canvas.clientHeight) || window.innerHeight;
+    const k = f ? (2 * (Math.abs(o.z) || 1)) / (f * h) : 0.002;
+    o.x += dx * k; o.y -= dy * k;
+  }
+
   const pts = new Map(); let lastD = 0;
   const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   addEventListener('pointerdown', e => {
@@ -240,11 +257,15 @@
     const dx = e.clientX - p.x, dy = e.clientY - p.y;
     p.x = e.clientX; p.y = e.clientY;
     if (pts.size === 1) {
-      rz += dx * 0.6; rx = Math.max(-100, Math.min(100, rx + dy * 0.4));
-      spin.object3D.rotation.z = rz * D2R; tilt.object3D.rotation.x = rx * D2R;
+      if (detached && moveMode) pan(dx, dy);
+      else {
+        rz += dx * 0.6; rx = Math.max(-100, Math.min(100, rx + dy * 0.4));
+        spin.object3D.rotation.z = rz * D2R; tilt.object3D.rotation.x = rx * D2R;
+      }
     } else if (pts.size === 2) {
       const d = dist(); if (lastD) zv = Math.max(0.4, Math.min(4, zv * d / lastD));
       lastD = d; zoom.object3D.scale.setScalar(zv);
+      if (detached) pan(dx / 2, dy / 2);   // the midpoint of two fingers moves half as far as each finger
     }
   });
   ['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => pts.delete(e.pointerId)));
