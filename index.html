@@ -27,27 +27,50 @@
           text-shadow: 0 1px 4px #000; transition: opacity .3s; }
   #hud { position: fixed; top: 12px; right: 12px; z-index: 15; display: none; }
   #hud button { padding: 8px 16px; background: rgba(0,0,0,.55); font-size: .9rem; }
-  model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
-  #viewer { padding: 0; }
-  #viewer .bar { position: absolute; top: 12px; left: 12px; z-index: 2; }
+  button.alt { background: #fff; color: #1c1410; }
+  #start { padding: 0; justify-content: flex-end; }
+  #start model-viewer { position: absolute; inset: 0; width: 100%; height: 100%; --poster-color: transparent;
+                        background: radial-gradient(circle at 50% 42%, #3a2a20, #1c1410 70%); }
+  #start .top { position: absolute; top: 0; left: 0; right: 0; z-index: 2; pointer-events: none;
+                padding: calc(28px + env(safe-area-inset-top, 0px)) 24px 0; text-shadow: 0 1px 6px #000; }
+  #start .top p { margin: 0 auto; }
+  #start .ui { position: relative; z-index: 2; width: 100%; box-sizing: border-box; display: flex; flex-direction: column;
+               align-items: center; pointer-events: none;
+               padding: 80px 24px calc(24px + env(safe-area-inset-bottom, 0px));
+               background: linear-gradient(transparent, rgba(28,20,16,.92) 55%); }
+  #start .ui button { pointer-events: auto; width: min(100%, 320px); box-sizing: border-box; }
+  #start .back3d { display: none; position: absolute; left: 0; right: 0; top: 0; z-index: 3; justify-content: space-between;
+                   pointer-events: none; padding: calc(12px + env(safe-area-inset-top, 0px)) 12px 0; }
+  #start .back3d button { pointer-events: auto; padding: 10px 18px; }
+  #start.only3d .top, #start.only3d .ui { display: none; }
+  #start.only3d .back3d { display: flex; }
 </style>
 </head>
 <body>
 
-<!-- 1. Start screen -->
+<!-- 1. Start screen: live 3D preview of the dish + 3 ways to view it -->
 <div class="screen on" id="start">
-  <h1>See your dish in 3D</h1>
-  <p>Point your camera at a dish photo on the menu.</p>
-  <button id="go" disabled>Loading…</button>
-  <button class="plain" id="skip">View 3D without camera</button>
-</div>
-
-<!-- 2. Fallback: plain 3D viewer (works without camera; adds "View in your space" on capable phones) -->
-<div class="screen" id="viewer">
-  <div class="bar"><button class="plain" id="back">Back</button></div>
-  <model-viewer id="mv" src="./pizza.glb" alt="Pizza" camera-controls auto-rotate
-                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" touch-action="pan-y">
+  <model-viewer id="mv" alt="3D pizza" camera-controls auto-rotate interaction-prompt="none"
+                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" loading="eager">
+    <button slot="ar-button" style="display:none"></button>
   </model-viewer>
+
+  <div class="top">
+    <h1>See your dish in 3D</h1>
+    <p id="sub">Loading your 3D dish…</p>
+  </div>
+
+  <div class="ui">
+    <button id="go" disabled>Loading…</button>
+    <button id="ar" class="alt" style="display:none">View in your space (AR)</button>
+    <button class="plain" id="skip">View 3D without camera</button>
+  </div>
+
+  <!-- shown when "View 3D without camera" is tapped -->
+  <div class="back3d">
+    <button class="plain" id="back">Back</button>
+    <button id="ar2" class="alt" style="display:none">View in your space (AR)</button>
+  </div>
 </div>
 
 <!-- 3. Error message -->
@@ -96,7 +119,7 @@
 
 <script>
   const $ = id => document.getElementById(id);
-  const show = id => { ['start','viewer','error'].forEach(s => $(s).classList.toggle('on', s === id)); };
+  const show = id => { ['start','error'].forEach(s => $(s).classList.toggle('on', s === id)); $('start').classList.remove('only3d'); };
   const scene = $('scene');
   let started = false;
 
@@ -104,7 +127,8 @@
 
   function open3D() {
     stopAR();
-    show('viewer');
+    show('start');
+    $('start').classList.add('only3d');
   }
 
   function stopAR() {
@@ -190,6 +214,25 @@
   $('errretry').onclick = () => show('start');
   $('hud3d').onclick = open3D;
   $('back').onclick = () => { show('start'); };
+
+  // Hero 3D preview. It loads after the AR scene has fetched pizza.glb, so the same file comes from cache instead of downloading twice.
+  const mv = $('mv');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const SHOW_AR_ON_ANDROID = false;   // set to true to also show "View in your space" on Android phones
+  let heroSet = false;
+  const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = './pizza.glb'; } };
+  const checkAR = () => {
+    const ok = mv.canActivateAR && (isIOS || SHOW_AR_ON_ANDROID);
+    $('ar').style.display = ok ? '' : 'none';
+    $('ar2').style.display = ok ? '' : 'none';
+  };
+  mv.addEventListener('load', () => {
+    $('sub').textContent = 'Drag to spin it · pinch to zoom';
+    checkAR(); setTimeout(checkAR, 400);
+  });
+  mv.addEventListener('error', () => { $('sub').textContent = 'Point your camera at a dish photo on the menu.'; });
+  $('ar').onclick = $('ar2').onclick = () => mv.activateAR();
+  Promise.race([whenReady(), new Promise(r => setTimeout(r, 6000))]).then(loadHero);
 
   const pop = $('pop'), tilt = $('tilt'), spin = $('spin'), zoom = $('zoom'), t0 = $('t0'), dbtn = $('detach');
   let found = false, detached = false, gone = true, goneTimer = null;
