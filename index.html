@@ -65,6 +65,15 @@
   #sheet { background: rgba(0,0,0,.35); }
   #sheet .card { background: #fff; color: #222; box-shadow: 0 -4px 24px rgba(0,0,0,.15); }
   #sheet p { color: #444; }
+  /* Layout v2: title on top, 3D model in the middle, buttons at the bottom (nothing overlaps the dish) */
+  #start .top { position: static; order: -1; width: 100%; box-sizing: border-box; padding: calc(20px + env(safe-area-inset-top, 0px)) 24px 0; }
+  #start model-viewer { position: relative; inset: auto; flex: 1 1 0; min-height: 0; align-self: stretch; width: auto; height: auto; }
+  #start.only3d model-viewer { flex: 1 1 100%; }
+  #start .ui { padding: 8px 24px calc(32px + env(safe-area-inset-bottom, 0px)); background: none; }
+  #start .ui button { padding: 13px 24px; }
+  #start .ui #go { padding: 15px 24px; }
+  #start .ui .wa, #start .ui #info { background: none; border: 0; color: #1a8f4a; padding: 8px; width: auto; font-size: .95rem; }
+  #start .ui #info { color: #555; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -86,10 +95,7 @@
     <button id="go" disabled>Loading…</button>
     <button id="ar" class="alt" style="display:none">View in your space (AR)</button>
     <button class="plain" id="skip">View 3D without camera</button>
-    <div class="row">
-      <button class="wa" id="wa">Order on WhatsApp</button>
-      <button class="plain" id="call">Call waiter</button>
-    </div>
+    <button class="wa" id="wa">Order on WhatsApp</button>
     <button class="plain" id="info" style="display:none">Details</button>
   </div>
 
@@ -192,7 +198,7 @@
     if (scene.renderStarted) return res();
     scene.addEventListener('renderstart', () => res(), { once: true });
   });
-  whenReady().then(() => { $('go').disabled = false; $('go').textContent = 'Open camera'; });
+  whenReady().then(() => { $('go').disabled = false; $('go').textContent = 'Scan the menu photo'; });
 
   const sys = () => scene.systems['mindar-image-system'];
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
@@ -257,7 +263,7 @@
   // Hero 3D preview. It loads after the AR scene has fetched pizza.glb, so the same file comes from cache instead of downloading twice.
   const mv = $('mv');
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const SHOW_AR_ON_ANDROID = true;    // Android: shown only if the phone reports AR support (see below)
+  const SHOW_AR_ON_ANDROID = false;   // Android: off. The phone check is not reliable enough (set true to experiment)
   let xrOK = false;
   let heroSet = false;
   const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
@@ -283,7 +289,6 @@
   $('dname').textContent = DISH.name;
   if (DISH.price) { $('price').textContent = DISH.price; $('price').style.display = ''; }
   $('wa').onclick = () => window.open('https://wa.me/' + RESTAURANT.whatsapp + '?text=' + encodeURIComponent('Hi, I would like to order: ' + DISH.name), '_blank');
-  $('call').onclick = () => { location.href = 'tel:' + RESTAURANT.phone; };
   [['sdesc', DISH.description, ''], ['sing', DISH.ingredients, 'Ingredients: '], ['sall', DISH.allergens, 'Allergens: ']].forEach(([id, v, pre]) => {
     $(id).textContent = v ? pre + v : ''; $(id).style.display = v ? '' : 'none';
   });
@@ -291,6 +296,7 @@
   if (DISH.description || DISH.ingredients || DISH.allergens) $('info').style.display = '';
   $('info').onclick = () => $('sheet').classList.add('on');
   $('sclose').onclick = () => $('sheet').classList.remove('on');
+  if (!RESTAURANT.whatsapp) $('wa').style.display = 'none';   // clear the number in dishes.js to hide the button
 
   // Android: open the camera automatically once everything has loaded (iPhone keeps its buttons)
   const AUTO_CAMERA_ON_ANDROID = false;
