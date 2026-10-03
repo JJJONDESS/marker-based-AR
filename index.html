@@ -54,6 +54,17 @@
                  padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); border-radius: 20px 20px 0 0; }
   #sheet h2 { margin: 0 0 12px; }
   #sheet p { max-width: none; margin: 0 0 10px; }
+  /* Light theme for the start page (white background + soft shadow under the dish) */
+  #start { background: #fff; color: #222; }
+  #start model-viewer { background: #fff; }
+  #start .top { text-shadow: none; }
+  #start .top p { color: #666; }
+  #start .ui { background: linear-gradient(rgba(255,255,255,0), #fff 55%); }
+  #start button.plain { border-color: #c9c9c9; color: #333; }
+  #start button.alt { background: #fff; color: #1a1a1a; border: 1px solid #c9c9c9; }
+  #sheet { background: rgba(0,0,0,.35); }
+  #sheet .card { background: #fff; color: #222; box-shadow: 0 -4px 24px rgba(0,0,0,.15); }
+  #sheet p { color: #444; }
 </style>
 </head>
 <body>
@@ -61,7 +72,7 @@
 <!-- 1. Start screen: live 3D preview of the dish + 3 ways to view it -->
 <div class="screen on" id="start">
   <model-viewer id="mv" alt="3D pizza" camera-controls auto-rotate interaction-prompt="none"
-                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" loading="eager">
+                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" shadow-softness="0.9" exposure="1.1" loading="eager">
     <button slot="ar-button" style="display:none"></button>
   </model-viewer>
 
@@ -246,11 +257,12 @@
   // Hero 3D preview. It loads after the AR scene has fetched pizza.glb, so the same file comes from cache instead of downloading twice.
   const mv = $('mv');
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const SHOW_AR_ON_ANDROID = false;   // set to true to also show "View in your space" on Android phones
+  const SHOW_AR_ON_ANDROID = true;    // Android: shown only if the phone reports AR support (see below)
+  let xrOK = false;
   let heroSet = false;
   const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
   const checkAR = () => {
-    const ok = mv.canActivateAR && (isIOS || SHOW_AR_ON_ANDROID);
+    const ok = mv.canActivateAR && (isIOS || (SHOW_AR_ON_ANDROID && xrOK));
     $('ar').style.display = ok ? '' : 'none';
     $('ar2').style.display = ok ? '' : 'none';
   };
@@ -260,6 +272,11 @@
   });
   mv.addEventListener('error', () => { $('sub').textContent = 'Point your camera at a dish photo on the menu.'; });
   $('ar').onclick = $('ar2').onclick = () => mv.activateAR();
+
+  // Android: ask the browser whether this phone supports AR (ARCore). If not, the button stays hidden.
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    navigator.xr.isSessionSupported('immersive-ar').then(v => { xrOK = !!v; checkAR(); }).catch(() => {});
+  }
 
   // Dish info + order buttons
   document.title = DISH.name + ' · ' + RESTAURANT.name;
@@ -276,7 +293,7 @@
   $('sclose').onclick = () => $('sheet').classList.remove('on');
 
   // Android: open the camera automatically once everything has loaded (iPhone keeps its buttons)
-  const AUTO_CAMERA_ON_ANDROID = true;
+  const AUTO_CAMERA_ON_ANDROID = false;
   whenReady().then(() => {
     if (AUTO_CAMERA_ON_ANDROID && !isIOS && !$('start').classList.contains('only3d')) startAR();
   });
