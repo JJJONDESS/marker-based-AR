@@ -39,7 +39,7 @@ const DISHES = {
     allergens: '',
     glb: 'dishes/mcart_compressed.glb',
     mind: 'dishes/targets.mind'
-  }
+  },
 
   // ---- NEXT DISH: add a comma after the last "}" above, then copy one block and paste it here ----
 
