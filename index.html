@@ -140,7 +140,7 @@
     const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '0.5 0.5 0.5';
     document.body.insertAdjacentHTML('beforeend', `
 <a-scene id="scene"
-         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
          vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
   <a-assets><a-asset-item id="dish" src="${d.glb}"></a-asset-item></a-assets>
