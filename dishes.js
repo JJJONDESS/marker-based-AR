@@ -37,8 +37,8 @@ const DISHES = {
     description: '',
     ingredients: '',
     allergens: '',
-    glb: 'dishes/pizza.glb',
-    mind: 'dishes/pizza-target.mind'
+    glb: 'dishes/mcart_compressed.glb',
+    mind: 'dishes/targets.mind'
   }
 
   // ---- NEXT DISH: add a comma after the last "}" above, then copy one block and paste it here ----
