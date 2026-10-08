@@ -29,6 +29,16 @@ const DISHES = {
     allergens: '',
     glb: 'dishes/pizza.glb',
     mind: 'dishes/pizza-target.mind'
+  },
+
+  'mcart_compressed': {                                  // your first pizza -> link: ?item=pizza
+    name: 'Pizza',
+    price: '',
+    description: '',
+    ingredients: '',
+    allergens: '',
+    glb: 'dishes/pizza.glb',
+    mind: 'dishes/pizza-target.mind'
   }
 
   // ---- NEXT DISH: add a comma after the last "}" above, then copy one block and paste it here ----
