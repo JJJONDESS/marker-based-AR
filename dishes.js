@@ -32,7 +32,7 @@ const DISHES = {
   },
 
   'mcart_compressed': {                                  // your first pizza -> link: ?item=pizza
-    name: 'Pizza',
+    name: 'mcart_compressed',
     price: '',
     description: '',
     ingredients: '',
