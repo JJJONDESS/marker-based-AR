@@ -34,7 +34,7 @@ const DISHES = {
   'mcart_small-v1': {                                  // your first pizza -> link: ?item=pizza
     name: 'mcart_compressed',
     price: '',
-    description: '',
+    description: 'before i use this updated index text',
     ingredients: '',
     allergens: '',
     glb: 'dishes/mcart_small-v1.glb',
