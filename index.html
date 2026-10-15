@@ -137,7 +137,7 @@
         Object.keys(DISHES).map(k => '<p><a style="color:#ffd27a;font-size:1.2rem" href="?item=' + k + '">' + DISHES[k].name + '</a></p>').join('') + '</div>';
       return;
     }
-    const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '0.5 0.5 0.5';
+    const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '2 2 2';
     document.body.insertAdjacentHTML('beforeend', `
 <a-scene id="scene"
          mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
@@ -265,7 +265,14 @@
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   const SHOW_AR_ON_ANDROID = false;   // Android: off. The phone check is not reliable enough (set true to experiment)
   let xrOK = false;
+  if (isIOS) {   // iPhone: AR button goes first and becomes the main button
+    $('ar').style.order = '-1';
+    $('ar').classList.remove('alt');
+    $('go').classList.add('alt');
+  }
   let heroSet = false;
+  // Optional: a ready-made iPhone model. Add  usdz: 'dishes/xxx.usdz'  to a dish in dishes.js to use it for "View in your space".
+  if (DISH.usdz) mv.setAttribute('ios-src', DISH.usdz);
   const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
   const checkAR = () => {
     const ok = mv.canActivateAR && (isIOS || (SHOW_AR_ON_ANDROID && xrOK));
@@ -336,6 +343,7 @@
     } else {
       t0.object3D.add(pop.object3D);
       pop.object3D.position.set(0, 0, 0); pop.object3D.quaternion.identity(); pop.object3D.scale.set(1, 1, 1);
+      zv = 1; zoom.object3D.scale.setScalar(1);
       detached = false; dbtn.textContent = 'Detach';
       moveMode = false; $('mode').textContent = 'Drag: Rotate'; $('mode').style.display = 'none';
       hint(found ? '' : 'Point at the dish photo on the menu');
@@ -359,6 +367,18 @@
     o.x += dx * k; o.y -= dy * k;
   }
 
+  // Zoom around a screen point (instead of the model centre), so you can zoom into any part of the dish
+  function zoomAbout(mx, my, r) {
+    const o = pop.object3D.position, m = scene.camera && scene.camera.projectionMatrix.elements;
+    if (!m || !m[0] || !m[5]) return;
+    const W = (scene.canvas && scene.canvas.clientWidth) || window.innerWidth;
+    const H = (scene.canvas && scene.canvas.clientHeight) || window.innerHeight;
+    const z = Math.abs(o.z) || 1;
+    const cx = ((mx - W / 2) / (W / 2)) * z / m[0];
+    const cy = (-(my - H / 2) / (H / 2)) * z / m[5];
+    o.x = cx + (o.x - cx) * r; o.y = cy + (o.y - cy) * r;
+  }
+
   const pts = new Map(); let lastD = 0;
   const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   addEventListener('pointerdown', e => {
@@ -377,9 +397,16 @@
         spin.object3D.rotation.z = rz * D2R; tilt.object3D.rotation.x = rx * D2R;
       }
     } else if (pts.size === 2) {
-      const d = dist(); if (lastD) zv = Math.max(0.4, Math.min(4, zv * d / lastD));
-      lastD = d; zoom.object3D.scale.setScalar(zv);
-      if (detached) pan(dx / 2, dy / 2);   // the midpoint of two fingers moves half as far as each finger
+      const d = dist();
+      const ratio = (lastD && d) ? d / lastD : 1;
+      const nz = Math.min(1e7, Math.max(1e-3, zv * ratio));   // no practical limit
+      const r = nz / zv; zv = nz; lastD = d;
+      zoom.object3D.scale.setScalar(zv);
+      if (detached) {
+        const [a, b] = [...pts.values()];
+        zoomAbout((a.x + b.x) / 2, (a.y + b.y) / 2, r);   // keep the spot between your fingers in place
+        pan(dx / 2, dy / 2);                              // the midpoint of two fingers moves half as far as each finger
+      }
     }
   });
   ['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => pts.delete(e.pointerId)));
