@@ -140,7 +140,7 @@
     const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '2 2 2';
     document.body.insertAdjacentHTML('beforeend', `
 <a-scene id="scene"
-         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
+         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
          vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
   <a-assets><a-asset-item id="dish" src="${d.glb}"></a-asset-item></a-assets>
@@ -271,6 +271,8 @@
     $('go').classList.add('alt');
   }
   let heroSet = false;
+  // Optional: a ready-made iPhone model. Add  usdz: 'dishes/xxx.usdz'  to a dish in dishes.js to use it for "View in your space".
+  if (DISH.usdz) mv.setAttribute('ios-src', DISH.usdz);
   const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
   const checkAR = () => {
     const ok = mv.canActivateAR && (isIOS || (SHOW_AR_ON_ANDROID && xrOK));
