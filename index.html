@@ -277,7 +277,7 @@
     if (heroSet) return; heroSet = true;
     if (DISH.usdz) mv.setAttribute('ios-src', DISH.usdz);   // optional: ready-made iPhone file (usdz: '...' in dishes.js)
     if (DISH.arScale) mv.scale = DISH.arScale;              // optional: resize the dish in AR (arScale: '2 2 2' in dishes.js)
-    mv.src = DISH.glb;
+    mv.src = (isIOS && DISH.glbIos) ? DISH.glbIos : DISH.glb;   // optional: separate model file for iPhone (glbIos: '...' in dishes.js)
   };
   const checkAR = () => {
     const ok = mv.canActivateAR && (isIOS || (SHOW_AR_ON_ANDROID && xrOK));
