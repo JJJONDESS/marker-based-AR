@@ -31,7 +31,7 @@ const DISHES = {
     mind: 'dishes/pizza-target.mind'
   },
 
-  'mcart_compressed': {                                  // your first pizza -> link: ?item=pizza
+  'mcart_small-v1': {                                  // your first pizza -> link: ?item=pizza
     name: 'mcart_compressed',
     price: '',
     description: '',
