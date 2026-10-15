@@ -38,6 +38,7 @@ const DISHES = {
     ingredients: '',
     allergens: '',
     glb: 'dishes/mcart_small-v1.glb',
+    glbIos: 'dishes/mcart_ios-v1.glb',
     mind: 'dishes/targets.mind'
   },
 
