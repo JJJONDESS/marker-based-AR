@@ -54,26 +54,6 @@
                  padding: 24px 24px calc(24px + env(safe-area-inset-bottom, 0px)); border-radius: 20px 20px 0 0; }
   #sheet h2 { margin: 0 0 12px; }
   #sheet p { max-width: none; margin: 0 0 10px; }
-  /* Light theme for the start page (white background + soft shadow under the dish) */
-  #start { background: #fff; color: #222; }
-  #start model-viewer { background: #fff; }
-  #start .top { text-shadow: none; }
-  #start .top p { color: #666; }
-  #start .ui { background: linear-gradient(rgba(255,255,255,0), #fff 55%); }
-  #start button.plain { border-color: #c9c9c9; color: #333; }
-  #start button.alt { background: #fff; color: #1a1a1a; border: 1px solid #c9c9c9; }
-  #sheet { background: rgba(0,0,0,.35); }
-  #sheet .card { background: #fff; color: #222; box-shadow: 0 -4px 24px rgba(0,0,0,.15); }
-  #sheet p { color: #444; }
-  /* Layout v2: title on top, 3D model in the middle, buttons at the bottom (nothing overlaps the dish) */
-  #start .top { position: static; order: -1; width: 100%; box-sizing: border-box; padding: calc(20px + env(safe-area-inset-top, 0px)) 24px 0; }
-  #start model-viewer { position: relative; inset: auto; flex: 1 1 0; min-height: 0; align-self: stretch; width: auto; height: auto; }
-  #start.only3d model-viewer { flex: 1 1 100%; }
-  #start .ui { padding: 8px 24px calc(32px + env(safe-area-inset-bottom, 0px)); background: none; }
-  #start .ui button { padding: 13px 24px; }
-  #start .ui #go { padding: 15px 24px; }
-  #start .ui .wa, #start .ui #info { background: none; border: 0; color: #1a8f4a; padding: 8px; width: auto; font-size: .95rem; }
-  #start .ui #info { color: #555; text-decoration: underline; }
 </style>
 </head>
 <body>
@@ -81,7 +61,7 @@
 <!-- 1. Start screen: live 3D preview of the dish + 3 ways to view it -->
 <div class="screen on" id="start">
   <model-viewer id="mv" alt="3D pizza" camera-controls auto-rotate interaction-prompt="none"
-                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" shadow-softness="0.9" exposure="1.1" loading="eager">
+                ar ar-modes="scene-viewer quick-look" shadow-intensity="1" loading="eager">
     <button slot="ar-button" style="display:none"></button>
   </model-viewer>
 
@@ -95,7 +75,10 @@
     <button id="go" disabled>Loading…</button>
     <button id="ar" class="alt" style="display:none">View in your space (AR)</button>
     <button class="plain" id="skip">View 3D without camera</button>
-    <button class="wa" id="wa">Order on WhatsApp</button>
+    <div class="row">
+      <button class="wa" id="wa">Order on WhatsApp</button>
+      <button class="plain" id="call">Call waiter</button>
+    </div>
     <button class="plain" id="info" style="display:none">Details</button>
   </div>
 
@@ -137,10 +120,10 @@
         Object.keys(DISHES).map(k => '<p><a style="color:#ffd27a;font-size:1.2rem" href="?item=' + k + '">' + DISHES[k].name + '</a></p>').join('') + '</div>';
       return;
     }
-    const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '2 2 2';
+    const rot = d.rotation || '90 0 0', pos = d.position || '0 0 0.02', sc = d.scale || '0.5 0.5 0.5';
     document.body.insertAdjacentHTML('beforeend', `
 <a-scene id="scene"
-         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1; filterMinCF: 0.0001; filterBeta: 0.001;"
+         mindar-image="imageTargetSrc: ${d.mind}; autoStart: false; uiLoading: no; uiScanning: no; uiError: no; maxTrack: 1;"
          color-space="sRGB" renderer="colorManagement: true; physicallyCorrectLights: true"
          vr-mode-ui="enabled: false" device-orientation-permission-ui="enabled: false">
   <a-assets><a-asset-item id="dish" src="${d.glb}"></a-asset-item></a-assets>
@@ -198,7 +181,7 @@
     if (scene.renderStarted) return res();
     scene.addEventListener('renderstart', () => res(), { once: true });
   });
-  whenReady().then(() => { $('go').disabled = false; $('go').textContent = 'Scan the menu photo'; });
+  whenReady().then(() => { $('go').disabled = false; $('go').textContent = 'Open camera'; });
 
   const sys = () => scene.systems['mindar-image-system'];
   const withTimeout = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(() => rej(new Error('timeout')), ms))]);
@@ -263,19 +246,11 @@
   // Hero 3D preview. It loads after the AR scene has fetched pizza.glb, so the same file comes from cache instead of downloading twice.
   const mv = $('mv');
   const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  const SHOW_AR_ON_ANDROID = false;   // Android: off. The phone check is not reliable enough (set true to experiment)
-  let xrOK = false;
-  if (isIOS) {   // iPhone: AR button goes first and becomes the main button
-    $('ar').style.order = '-1';
-    $('ar').classList.remove('alt');
-    $('go').classList.add('alt');
-  }
+  const SHOW_AR_ON_ANDROID = false;   // set to true to also show "View in your space" on Android phones
   let heroSet = false;
-  // Optional: a ready-made iPhone model. Add  usdz: 'dishes/xxx.usdz'  to a dish in dishes.js to use it for "View in your space".
-  if (DISH.usdz) mv.setAttribute('ios-src', DISH.usdz);
   const loadHero = () => { if (!heroSet) { heroSet = true; mv.src = DISH.glb; } };
   const checkAR = () => {
-    const ok = mv.canActivateAR && (isIOS || (SHOW_AR_ON_ANDROID && xrOK));
+    const ok = mv.canActivateAR && (isIOS || SHOW_AR_ON_ANDROID);
     $('ar').style.display = ok ? '' : 'none';
     $('ar2').style.display = ok ? '' : 'none';
   };
@@ -286,16 +261,12 @@
   mv.addEventListener('error', () => { $('sub').textContent = 'Point your camera at a dish photo on the menu.'; });
   $('ar').onclick = $('ar2').onclick = () => mv.activateAR();
 
-  // Android: ask the browser whether this phone supports AR (ARCore). If not, the button stays hidden.
-  if (navigator.xr && navigator.xr.isSessionSupported) {
-    navigator.xr.isSessionSupported('immersive-ar').then(v => { xrOK = !!v; checkAR(); }).catch(() => {});
-  }
-
   // Dish info + order buttons
   document.title = DISH.name + ' · ' + RESTAURANT.name;
   $('dname').textContent = DISH.name;
   if (DISH.price) { $('price').textContent = DISH.price; $('price').style.display = ''; }
   $('wa').onclick = () => window.open('https://wa.me/' + RESTAURANT.whatsapp + '?text=' + encodeURIComponent('Hi, I would like to order: ' + DISH.name), '_blank');
+  $('call').onclick = () => { location.href = 'tel:' + RESTAURANT.phone; };
   [['sdesc', DISH.description, ''], ['sing', DISH.ingredients, 'Ingredients: '], ['sall', DISH.allergens, 'Allergens: ']].forEach(([id, v, pre]) => {
     $(id).textContent = v ? pre + v : ''; $(id).style.display = v ? '' : 'none';
   });
@@ -303,10 +274,9 @@
   if (DISH.description || DISH.ingredients || DISH.allergens) $('info').style.display = '';
   $('info').onclick = () => $('sheet').classList.add('on');
   $('sclose').onclick = () => $('sheet').classList.remove('on');
-  if (!RESTAURANT.whatsapp) $('wa').style.display = 'none';   // clear the number in dishes.js to hide the button
 
   // Android: open the camera automatically once everything has loaded (iPhone keeps its buttons)
-  const AUTO_CAMERA_ON_ANDROID = false;
+  const AUTO_CAMERA_ON_ANDROID = true;
   whenReady().then(() => {
     if (AUTO_CAMERA_ON_ANDROID && !isIOS && !$('start').classList.contains('only3d')) startAR();
   });
@@ -343,7 +313,6 @@
     } else {
       t0.object3D.add(pop.object3D);
       pop.object3D.position.set(0, 0, 0); pop.object3D.quaternion.identity(); pop.object3D.scale.set(1, 1, 1);
-      zv = 1; zoom.object3D.scale.setScalar(1);
       detached = false; dbtn.textContent = 'Detach';
       moveMode = false; $('mode').textContent = 'Drag: Rotate'; $('mode').style.display = 'none';
       hint(found ? '' : 'Point at the dish photo on the menu');
@@ -367,18 +336,6 @@
     o.x += dx * k; o.y -= dy * k;
   }
 
-  // Zoom around a screen point (instead of the model centre), so you can zoom into any part of the dish
-  function zoomAbout(mx, my, r) {
-    const o = pop.object3D.position, m = scene.camera && scene.camera.projectionMatrix.elements;
-    if (!m || !m[0] || !m[5]) return;
-    const W = (scene.canvas && scene.canvas.clientWidth) || window.innerWidth;
-    const H = (scene.canvas && scene.canvas.clientHeight) || window.innerHeight;
-    const z = Math.abs(o.z) || 1;
-    const cx = ((mx - W / 2) / (W / 2)) * z / m[0];
-    const cy = (-(my - H / 2) / (H / 2)) * z / m[5];
-    o.x = cx + (o.x - cx) * r; o.y = cy + (o.y - cy) * r;
-  }
-
   const pts = new Map(); let lastD = 0;
   const dist = () => { const [a, b] = [...pts.values()]; return Math.hypot(a.x - b.x, a.y - b.y); };
   addEventListener('pointerdown', e => {
@@ -397,16 +354,9 @@
         spin.object3D.rotation.z = rz * D2R; tilt.object3D.rotation.x = rx * D2R;
       }
     } else if (pts.size === 2) {
-      const d = dist();
-      const ratio = (lastD && d) ? d / lastD : 1;
-      const nz = Math.min(1e7, Math.max(1e-3, zv * ratio));   // no practical limit
-      const r = nz / zv; zv = nz; lastD = d;
-      zoom.object3D.scale.setScalar(zv);
-      if (detached) {
-        const [a, b] = [...pts.values()];
-        zoomAbout((a.x + b.x) / 2, (a.y + b.y) / 2, r);   // keep the spot between your fingers in place
-        pan(dx / 2, dy / 2);                              // the midpoint of two fingers moves half as far as each finger
-      }
+      const d = dist(); if (lastD) zv = Math.max(0.4, Math.min(4, zv * d / lastD));
+      lastD = d; zoom.object3D.scale.setScalar(zv);
+      if (detached) pan(dx / 2, dy / 2);   // the midpoint of two fingers moves half as far as each finger
     }
   });
   ['pointerup', 'pointercancel'].forEach(t => addEventListener(t, e => pts.delete(e.pointerId)));
