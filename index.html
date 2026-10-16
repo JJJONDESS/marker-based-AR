@@ -149,6 +149,7 @@
   // ---------- Settings you may change ----------
   const SHOW_AR_ON_ANDROID = false;       // Android: off. The phone check is not reliable enough (set true to experiment)
   const PRELOAD_AR_ON_IOS = false;        // iPhone mostly uses "View in your space", so the camera engine loads only when needed
+  const HIDE_BOTTOM_IN_AR = true;         // false = never limit the tilt in the camera view (the 3D page still hides the bottom)
   const MIN_ELEVATION_SIN = 0.05;         // how far above the dish's base the viewer must stay (0.05 = about 3 degrees)
 
   // ---------- Page text, info sheet, order button ----------
@@ -269,7 +270,7 @@
 
   // Runs every frame: keeps the camera from ever seeing the underside of the dish
   function registerHideBottom() {
-    AFRAME.registerComponent('hide-bottom', { tick() { if (window.__limitTilt) window.__limitTilt(); } });
+    AFRAME.registerComponent('hide-bottom', { tick() { try { if (window.__limitTilt) window.__limitTilt(); } catch (e) {} } });
   }
 
   // ---------- Starting the camera ----------
@@ -379,22 +380,30 @@
     // stays above the base plane, i.e. dot(up, direction-to-camera) >= MIN_ELEVATION_SIN * distance. This limits the tilt angle (rx)
     // every frame, whether the dish sits on the menu photo or is detached, and whatever way the phone is held.
     const vA = new T.Vector3(), vB = new T.Vector3(), qA = new T.Quaternion();
+    let tiltErrors = 0;
     window.__limitTilt = function () {
-      const cam = scene.camera; if (!cam) return;
-      pop.object3D.getWorldPosition(vA);
-      cam.getWorldPosition(vB);
-      vB.sub(vA);                          // from the dish to the camera
-      pop.object3D.getWorldQuaternion(qA);
-      vB.applyQuaternion(qA.invert());     // the same direction in the dish's own frame
-      const L = vB.length(), R = Math.hypot(vB.y, vB.z);
-      if (L < 1e-6 || R < 1e-6) return;
-      const t = MIN_ELEVATION_SIN * L / R;
-      if (t >= 1) return;
-      const half = Math.acos(t) / D2R;     // allowed tilt: mid - half ... mid + half (degrees)
-      let mid = -Math.atan2(vB.y, vB.z) / D2R;
-      mid += 360 * Math.round((rx - mid) / 360);
-      const nrx = Math.max(mid - half, Math.min(mid + half, rx));
-      if (nrx !== rx) { rx = nrx; tilt.object3D.rotation.x = rx * D2R; }
+      if (!HIDE_BOTTOM_IN_AR || tiltErrors > 3) return;       // switched off by the setting, or it failed repeatedly
+      try {
+        if (!found && !detached) return;                      // nothing is visible, nothing to limit
+        if (!isFinite(rx)) { rx = 0; tilt.object3D.rotation.x = 0; }
+        const cam = scene.camera; if (!cam) return;
+        pop.object3D.getWorldPosition(vA);
+        cam.getWorldPosition(vB);
+        vB.sub(vA);                          // from the dish to the camera
+        pop.object3D.getWorldQuaternion(qA);
+        vB.applyQuaternion(qA.invert());     // the same direction in the dish's own frame
+        const L = vB.length(), R = Math.hypot(vB.y, vB.z);
+        if (!isFinite(L) || !isFinite(R) || L < 1e-6 || R < 1e-6) return;
+        const t = MIN_ELEVATION_SIN * L / R;
+        if (t >= 1) return;
+        const half = Math.acos(t) / D2R;     // allowed tilt: mid - half ... mid + half (degrees)
+        let mid = -Math.atan2(vB.y, vB.z) / D2R;
+        mid += 360 * Math.round((rx - mid) / 360);
+        const nrx = Math.max(mid - half, Math.min(mid + half, rx));
+        if (isFinite(nrx) && nrx !== rx) { rx = nrx; tilt.object3D.rotation.x = rx * D2R; }
+      } catch (err) {
+        tiltErrors++; console.warn('hide-bottom skipped:', err);   // never let this stop the camera view
+      }
     };
 
     // ----- Detach: move the model from the photo onto the camera, keeping its current size/position -----
