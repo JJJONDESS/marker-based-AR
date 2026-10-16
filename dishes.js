@@ -42,6 +42,17 @@ const DISHES = {
     mind: 'dishes/targets.mind'
   },
 
+  'mr_pizza': {                                  // your first pizza -> link: ?item=pizza
+    name: 'mr_pizza',
+    price: '800',
+    description: 'is evrything alright',
+    ingredients: '',
+    allergens: '',
+    glb: 'dishes/mr_pizza_mayo_small-v1.glb',
+    glbIos: 'dishes/mr_pizza_mayo_ios-v1.glb',
+    mind: 'dishes/mr-pizza-target.mind'
+  },
+
   // ---- NEXT DISH: add a comma after the last "}" above, then copy one block and paste it here ----
 
 };
