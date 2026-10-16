@@ -61,7 +61,7 @@ const DISHES = {
     allergens: '',
     glb: 'dishes/old_chair_small-v1.glb',  // Android marker AR
     glbIos: 'dishes/old_chair_ios-v1.glb', // iPhone only (leave this line out
-    mind: 'dishes/mr-pizza-target.mind'
+    mind: 'dishes/old-chair.mind'
   },
 
   // ---- NEXT DISH: add a comma after the last "}" above, then copy one block and paste it here ----
