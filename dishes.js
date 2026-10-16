@@ -48,8 +48,8 @@ const DISHES = {
     description: 'is evrything alright',
     ingredients: '',
     allergens: '',
-    glb: 'dishes/mr_pizza_mayo_small-v1.glb',
-    glbIos: 'dishes/mr_pizza_mayo_ios-v1.glb',
+    glb: 'dishes/mr_pizza_mayo_small-v1.glb',  // Android marker AR
+    glbIos: 'dishes/mr_pizza_mayo_ios-v1.glb', // iPhone only (leave this line out
     mind: 'dishes/mr-pizza-target.mind'
   },
 
