@@ -191,6 +191,7 @@
   // The "View in your space" buttons stay hidden until the model has loaded, so they cannot be tapped too early.
   $('ar').onclick = $('ar2').onclick = () => { if (mv.canActivateAR) mv.activateAR(); };
 
+  if (DISH.poster) mv.setAttribute('poster', DISH.poster);       // optional: small picture shown while the 3D model loads (poster: '...' in dishes.js)
   if (DISH.usdz) mv.setAttribute('ios-src', DISH.usdz);          // optional: ready-made iPhone file (usdz: '...' in dishes.js)
   if (DISH.arScale) mv.setAttribute('scale', DISH.arScale);      // optional: resize the dish in AR (arScale: '2 2 2' in dishes.js)
 
@@ -199,7 +200,20 @@
     $('bar').firstElementChild.style.width = Math.round(p * 100) + '%';
     if (p < 1) $('sub').textContent = 'Loading your 3D dish… ' + Math.round(p * 100) + '%';
   });
-  const heroDone = () => { $('bar').style.display = 'none'; if (!isIOS || PRELOAD_AR_ON_IOS) loadEngine().catch(() => {}); };
+  let heroFinished = false;
+  const resetGo = () => { $('go').disabled = false; $('go').textContent = 'Scan the menu photo'; };
+  // Starts downloading the camera engine. If the customer is already waiting for the camera and it fails, tell them.
+  const startEngine = () => loadEngine().catch(() => {
+    if (!wantAR) return;                 // silent background failure: the next tap on "Scan" will try again
+    wantAR = false; resetGo();
+    showError('Camera could not load', 'The camera part of this page did not finish loading. Check your internet connection and try again, or view the dish in 3D.', 'engine load failed');
+  });
+  const heroDone = () => {
+    if (heroFinished) return;
+    heroFinished = true;
+    $('bar').style.display = 'none';
+    if (!isIOS || PRELOAD_AR_ON_IOS || wantAR) startEngine();   // the camera engine only starts after the 3D dish has finished
+  };
   mv.addEventListener('load', () => {
     $('sub').textContent = 'Drag to spin it · pinch to zoom';
     checkAR(); setTimeout(checkAR, 400);
@@ -210,7 +224,7 @@
     heroDone();
   });
   mv.setAttribute('src', (isIOS && DISH.glbIos) ? DISH.glbIos : DISH.glb);   // optional: separate iPhone model (glbIos: '...' in dishes.js)
-  setTimeout(() => { if (!isIOS || PRELOAD_AR_ON_IOS) loadEngine().catch(() => {}); }, 25000);   // safety: do not wait forever on a very slow connection
+  setTimeout(() => { if (!heroFinished && (!isIOS || PRELOAD_AR_ON_IOS || wantAR)) startEngine(); }, 25000);   // safety: do not wait forever on a very slow connection
 
   // Android: ask the browser whether this phone supports AR (ARCore). If not, the button stays hidden.
   if (navigator.xr && navigator.xr.isSessionSupported) {
@@ -238,7 +252,7 @@
       await new Promise(res => { if (scene.renderStarted) res(); else scene.addEventListener('renderstart', () => res(), { once: true }); });
       initAR();
       arReady = true;
-      $('go').disabled = false; $('go').textContent = 'Scan the menu photo';
+      resetGo();
       if (wantAR) { wantAR = false; startAR(); }
     })().catch(e => { enginePromise = null; throw e; });
     return enginePromise;
@@ -325,16 +339,14 @@
     }
   }
 
-  // "Scan the menu photo": if the camera engine is still loading, wait for it and then start by itself
+  // "Scan the menu photo": the button is never locked. If the camera engine is not ready yet, the customer can keep
+  // playing with the 3D dish; the camera opens by itself as soon as it is ready. Tapping again cancels the wait.
   $('go').onclick = () => {
     if (arReady) { startAR(); return; }
+    if (wantAR) { wantAR = false; resetGo(); hint(''); return; }
     wantAR = true;
-    $('go').disabled = true; $('go').textContent = 'Getting camera ready…';
-    loadEngine().catch(() => {
-      wantAR = false;
-      $('go').disabled = false; $('go').textContent = 'Scan the menu photo';
-      showError('Camera could not load', 'The camera part of this page did not finish loading. Check your internet connection and try again, or view the dish in 3D.', 'engine load failed');
-    });
+    $('go').textContent = 'Camera opens when ready… (tap to cancel)';
+    if (heroFinished) startEngine();    // otherwise heroDone() starts it right after the dish has loaded
   };
 
   function stopAR() {
